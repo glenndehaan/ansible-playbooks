@@ -1,0 +1,12 @@
+---
+# handlers file for teamspeak3
+
+- name: Reload systemd
+  become: true
+  command: systemctl daemon-reload
+
+- name: Restart TeamSpeak 3 Server
+  become: true
+  service:
+    name: teamspeak3
+    state: restarted

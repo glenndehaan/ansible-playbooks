@@ -1,0 +1,15 @@
+[Unit]
+Description=Teamspeak 3 Service
+Wants=network.target
+
+[Service]
+WorkingDirectory=/home/teamspeak/teamspeak3-current
+User=teamspeak
+ExecStart=/home/teamspeak/teamspeak3-current/ts3server_minimal_runscript.sh
+ExecStop=/home/teamspeak/teamspeak3-current/ts3server_startscript.sh stop
+ExecReload=/home/teamspeak/teamspeak3-current/ts3server_startscript.sh restart
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

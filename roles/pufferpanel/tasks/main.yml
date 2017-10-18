@@ -1,0 +1,27 @@
+---
+# tasks file for pufferpanel
+- name: Create srv folder
+  become: true
+  file:
+    path: /srv
+    state: directory
+    mode: 0755
+- name: Get pufferpanel
+  become: true
+  get_url:
+    url: https://git.io/v53Jp
+    dest: /srv/pufferpanel.tar.gz
+- name: Unarchive pufferpanel
+  become: true
+  unarchive:
+    src: https://git.io/v53Jp
+    dest: /srv
+    remote_src: yes
+- name: chmod pufferpanel
+  become: true
+  file:
+    path: /srv/pufferpanel/pufferpanel
+    mode: 0755
+- name: Message
+  debug:
+    msg: Run ./pufferpanel manually in the /srv folder

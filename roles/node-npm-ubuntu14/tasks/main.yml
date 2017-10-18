@@ -1,0 +1,29 @@
+---
+# tasks file for node-npm-ubuntu14
+- name: Add key for ppa python2.7 repository
+  apt_key: keyserver=keyserver.ubuntu.com id=DB82666C state=present
+  become: yes
+  become_user: root
+  become_method: sudo
+- name: Add ppa python2.7 repository
+  apt_repository: repo='deb http://ppa.launchpad.net/fkrull/deadsnakes-python2.7/ubuntu {{ ansible_distribution_release }} main' state=present update_cache=yes
+  become: yes
+  become_user: root
+  become_method: sudo
+- name: Installing python2.7
+  apt:
+    pkg: python2.7
+    state: latest
+    install_recommends: no
+  become: yes
+  become_user: root
+  become_method: sudo
+- name: Add node repository key
+  become: true
+  apt_key: url=https://deb.nodesource.com/gpgkey/nodesource.gpg.key state=present
+- name: Add node respository
+  become: true
+  apt_repository: mode=644 repo='deb https://deb.nodesource.com/node_8.x {{ ansible_distribution_release }} main' state=present update_cache=yes
+- name: Install node with npm
+  become: true
+  apt: name=nodejs state=latest

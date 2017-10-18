@@ -1,0 +1,148 @@
+---
+# tasks file for teamspeak3
+
+- name: Create TeamSpeak user
+  become: true
+  user:
+    name: teamspeak
+    shell: /bin/false
+    home: /home/teamspeak
+    createhome: yes
+    system: yes
+    state: present
+
+- name: Check TeamSpeak Home Directory rights
+  become: true
+  file:
+    state: directory
+    path: /home/teamspeak
+    owner: teamspeak
+    group: teamspeak
+    mode: u+rwx
+
+- name: "Download TeamSpeak {{ teamspeak.version }} Server files"
+  become: true
+  get_url:
+    url: "http://dl.4players.de/ts/releases/{{ teamspeak.version }}/teamspeak3-server_linux_amd64-{{ teamspeak.version }}.tar.bz2"
+    dest: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}.tar.bz2"
+    owner: teamspeak
+    group: teamspeak
+
+- name: "Create TeamSpeak {{ teamspeak.version }} Server directory"
+  become: true
+  file:
+    path: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}/teamspeak3-server_linux_amd64"
+    state: directory
+    owner: teamspeak
+    group: teamspeak
+
+- name: Checking for a currently installed TeamSpeak 3 Server with user data
+  become: true
+  stat:
+    path: /home/teamspeak/teamspeak3-current/teamspeak3-server_linux_amd64/files
+  register: userdata
+
+
+
+- name: Check if a TeamSpeak systemd service exists
+  become: true
+  stat:
+    path: /etc/systemd/system/teamspeak3.service
+  register: ts3_systemd_service
+
+- name: Stop currently running TeamSpeak 3 Server instance
+  become: true
+  service:
+    name: teamspeak3
+    state: stopped
+  when: ts3_systemd_service.stat.exists
+
+- name: Copy existing TeamSpeak 3 Server data to new TeamSpeak {{ teamspeak.version }} Server directory
+  become: true
+  shell: "cp -H -R /home/teamspeak/teamspeak3-current/* /home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}/teamspeak3-server_linux_amd64"
+  when: ts3_systemd_service.stat.exists
+
+- name: Make sure ownership is set to {{ teamspeak.user }}
+  become: true
+  file:
+    path: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}/teamspeak3-server_linux_amd64/"
+    state: directory
+    owner: teamspeak
+    group: teamspeak
+    recurse: yes
+
+
+
+- name: "Extract TeamSpeak {{ teamspeak.version }} Server files"
+  become: true
+  unarchive:
+    copy: no
+    src: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}.tar.bz2"
+    dest: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}/"
+    owner: teamspeak
+    group: teamspeak
+
+- name: "Create/Update symlink to TeamSpeak {{ teamspeak.version }} Server"
+  become: true
+  file:
+    src: "/home/teamspeak/teamspeak3-server_linux_amd64-{{ teamspeak.version }}/teamspeak3-server_linux_amd64"
+    dest: /home/teamspeak/teamspeak3-current
+    state: link
+    owner: teamspeak
+    group: teamspeak
+  notify:
+    - Restart TeamSpeak 3 Server
+
+- name: Install TeamSpeak systemctl service file
+  become: true
+  template:
+    src: teamspeak3.service
+    dest: /etc/systemd/system/teamspeak3.service
+    mode: 0644
+    owner: root
+    group: root
+  notify:
+    - Reload systemd
+    - Restart TeamSpeak 3 Server
+
+- name: Enable and start TeamSpeak 3 Server
+  become: true
+  service:
+    name: teamspeak3
+    state: started
+    enabled: yes
+
+
+
+- name: Wait until TeamSpeak 3 ServerQuery is open
+  become: true
+  wait_for:
+    port: 10011
+    timeout: 10
+  when: userdata.stat is defined and userdata.stat.exists == False
+
+- name: Fetch the password of the Server Query Admin Account
+  become: true
+  shell: journalctl --unit teamspeak3.service --reverse | awk -F'"' '/password=/ { print $4; exit }'
+  register: __ts3_serveradmin_password
+  changed_when: False
+  when: userdata.stat is defined and userdata.stat.exists == False
+
+- name: Show the Server Query Admin Account password
+  become: true
+  debug:
+    msg: "serveradmin password: {{ __ts3_serveradmin_password.stdout }}"
+  when: userdata.stat is defined and userdata.stat.exists == False
+
+- name: Fetch the ServerAdmin privilege key (token)
+  become: true
+  shell: journalctl --unit teamspeak3.service --reverse | awk -F'=' '/token=/ { print $2 ; exit }'
+  register: __ts3_default_priv_token
+  changed_when: False
+  when: userdata.stat is defined and userdata.stat.exists == False
+
+- name: Show the ServerAdmin privilege key
+  become: true
+  debug:
+    msg: "token: {{ __ts3_default_priv_token.stdout }}"
+  when: userdata.stat is defined and userdata.stat.exists == False
